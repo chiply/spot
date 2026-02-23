@@ -137,15 +137,27 @@
 
 ;;; Keymap registry
 
-(add-to-list 'embark-keymap-alist '(album . spot-embark-album-keymap))
-(add-to-list 'embark-keymap-alist '(artist . spot-embark-artist-keymap))
-(add-to-list 'embark-keymap-alist '(playlist . spot-embark-playlist-keymap))
-(add-to-list 'embark-keymap-alist '(track . spot-embark-track-keymap))
-(add-to-list 'embark-keymap-alist '(show . spot-embark-show-keymap))
-(add-to-list 'embark-keymap-alist '(episode . spot-embark-episode-keymap))
-(add-to-list 'embark-keymap-alist '(audiobook . spot-embark-audiobook-keymap))
-(add-to-list 'embark-keymap-alist '(current-user-playlists . spot-embark-current-user-playlists-keymap))
-(add-to-list 'embark-keymap-alist '(playlist-tracks . spot-embark-playlist-tracks-keymap))
+(defvar spot--embark-keymap-entries
+  '((album . spot-embark-album-keymap)
+    (artist . spot-embark-artist-keymap)
+    (playlist . spot-embark-playlist-keymap)
+    (track . spot-embark-track-keymap)
+    (show . spot-embark-show-keymap)
+    (episode . spot-embark-episode-keymap)
+    (audiobook . spot-embark-audiobook-keymap)
+    (current-user-playlists . spot-embark-current-user-playlists-keymap)
+    (playlist-tracks . spot-embark-playlist-tracks-keymap))
+  "Alist of embark keymap entries registered by spot.")
+
+(defun spot--setup-embark ()
+  "Register spot keymaps with embark."
+  (dolist (entry spot--embark-keymap-entries)
+    (add-to-list 'embark-keymap-alist entry)))
+
+(defun spot--teardown-embark ()
+  "Remove spot keymaps from embark."
+  (dolist (entry spot--embark-keymap-entries)
+    (setq embark-keymap-alist (delete entry embark-keymap-alist))))
 
 ;;; Key bindings
 

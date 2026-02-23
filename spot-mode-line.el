@@ -92,13 +92,26 @@ The default color is the official Spotify green."
       #'spot--update-modeline-lighters)
      spot--update-timers)))
 
+(defvar spot--periodic-timer nil
+  "The periodic timer for mode-line updates.")
+
 (defun spot--start-update-timer ()
   "Start the periodic mode-line update timer."
-  (when (not spot--timer-started)
-    (run-with-timer
-     0 spot--update-interval
-     #'spot--check-for-modeline-update)
+  (unless spot--timer-started
+    (setq spot--periodic-timer
+          (run-with-timer
+           0 spot--update-interval
+           #'spot--check-for-modeline-update))
     (setq spot--timer-started t)))
+
+(defun spot--stop-update-timer ()
+  "Stop the periodic mode-line update timer."
+  (when spot--periodic-timer
+    (cancel-timer spot--periodic-timer)
+    (setq spot--periodic-timer nil))
+  (mapc #'cancel-timer spot--update-timers)
+  (setq spot--update-timers nil)
+  (setq spot--timer-started nil))
 
 (defun spot-mode-line-string ()
   "Return the mode-line string for the currently playing track."

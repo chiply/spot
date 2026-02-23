@@ -179,6 +179,37 @@
   (should (= (spot--round-to-two-decimals 1.0) 1.0))
   (should (= (spot--round-to-two-decimals 2.567) 2.57)))
 
+
+;;; spot-mode
+
+(ert-deftest spot-test-mode/enable-registers-embark ()
+  "Enabling spot-mode registers embark keymaps."
+  (require 'spot)
+  (unwind-protect
+      (progn
+        (spot-mode 1)
+        (should (assq 'album embark-keymap-alist))
+        (should (assq 'track embark-keymap-alist)))
+    (spot-mode -1)))
+
+(ert-deftest spot-test-mode/disable-unregisters-embark ()
+  "Disabling spot-mode removes embark keymaps."
+  (require 'spot)
+  (spot-mode 1)
+  (spot-mode -1)
+  (should-not (assq 'album embark-keymap-alist))
+  (should-not (assq 'track embark-keymap-alist)))
+
+(ert-deftest spot-test-mode/enable-registers-marginalia ()
+  "Enabling spot-mode registers marginalia annotators."
+  (require 'spot)
+  (unwind-protect
+      (progn
+        (spot-mode 1)
+        (should (assq 'album marginalia-annotators))
+        (should (assq 'track marginalia-annotators)))
+    (spot-mode -1)))
+
 (provide 'spot-test)
 
 ;;; spot-test.el ends here

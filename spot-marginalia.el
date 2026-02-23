@@ -109,13 +109,25 @@
 
 ;;; Register annotators
 
-(add-to-list 'marginalia-annotators '(album spot--annotate-album none))
-(add-to-list 'marginalia-annotators '(artist spot--annotate-artist none))
-(add-to-list 'marginalia-annotators '(playlist spot--annotate-playlist none))
-(add-to-list 'marginalia-annotators '(track spot--annotate-track none))
-(add-to-list 'marginalia-annotators '(show spot--annotate-show none))
-(add-to-list 'marginalia-annotators '(episode spot--annotate-episode none))
-(add-to-list 'marginalia-annotators '(audiobook spot--annotate-audiobook none))
+(defvar spot--marginalia-annotator-entries
+  '((album spot--annotate-album none)
+    (artist spot--annotate-artist none)
+    (playlist spot--annotate-playlist none)
+    (track spot--annotate-track none)
+    (show spot--annotate-show none)
+    (episode spot--annotate-episode none)
+    (audiobook spot--annotate-audiobook none))
+  "List of marginalia annotator entries registered by spot.")
+
+(defun spot--setup-marginalia ()
+  "Register spot annotators with marginalia."
+  (dolist (entry spot--marginalia-annotator-entries)
+    (add-to-list 'marginalia-annotators entry)))
+
+(defun spot--teardown-marginalia ()
+  "Remove spot annotators from marginalia."
+  (dolist (entry spot--marginalia-annotator-entries)
+    (setq marginalia-annotators (delete entry marginalia-annotators))))
 
 (provide 'spot-marginalia)
 
