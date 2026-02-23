@@ -122,6 +122,7 @@ Press `embark-act` (default `C-.`) on any search result:
 
 - `M-x spot-consult-search-current-user-playlists` — browse your playlists
 - `M-x spot-consult-search-playlist-tracks` — browse tracks in a playlist
+- `M-x spot-add-current-track-to-playlist` — add the currently playing track to a playlist
 
 ## Comparison with alternatives
 
