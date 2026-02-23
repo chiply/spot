@@ -54,12 +54,14 @@ The default color is the official Spotify green."
   "Fetch currently playing track and update mode-line variables.
 If CURRENT is provided, use it instead of fetching from the API."
   (let ((current (or current (spot--alist-to-ht (spot--currently-playing)))))
-    (if current
+    (if (and current (hash-table-p (ht-get current 'item)))
         (progn
           (setq spot--modeline-track
                 (ht-get* current 'item 'name))
           (setq spot--modeline-artist
-                (ht-get* (nth 0 (ht-get* current 'item 'artists)) 'name))
+                (when-let* ((artists (ht-get* current 'item 'artists))
+                            (first (nth 0 artists)))
+                  (ht-get first 'name)))
           (setq spot--modeline-album
                 (ht-get* current 'item 'album 'name))
           (setq spot--modeline-repeat-state
@@ -83,7 +85,8 @@ If CURRENT is provided, use it instead of fetching from the API."
   (let ((current (spot--alist-to-ht (spot--currently-playing))))
     (spot--update-modeline-lighters current)
     (when-let* ((progress (and current (ht-get current 'progress_ms)))
-                (duration (ht-get* current 'item 'duration_ms))
+                (item (ht-get current 'item))
+                (duration (ht-get item 'duration_ms))
                 (remaining (- duration progress))
                 (delay (max 0 remaining)))
       (mapc #'cancel-timer spot--update-timers)
