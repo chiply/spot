@@ -48,10 +48,12 @@ headers, and DATA is the request body."
   "Fetch URL asynchronously and call CALLBACK with the JSON response string."
   (url-retrieve
    url
-   (lambda (_status)
-     (let ((json (decode-coding-region (+ 1 url-http-end-of-headers)
-                                       (point-max) 'utf-8 t)))
-       (funcall callback json)))
+   (lambda (status)
+     (if (plist-get status :error)
+         (message "spot: request failed: %s" (cdr (plist-get status :error)))
+       (let ((json (decode-coding-region (+ 1 url-http-end-of-headers)
+                                         (point-max) 'utf-8 t)))
+         (funcall callback json))))
    nil t t))
 
 (defun spot--message-request-complete (&rest _args)

@@ -50,9 +50,10 @@ The default color is the official Spotify green."
 (defvar spot--update-interval 30
   "Interval in seconds between mode-line update checks.")
 
-(defun spot--update-modeline-lighters ()
-  "Fetch currently playing track and update mode-line variables."
-  (let ((current (spot--alist-to-ht (spot--currently-playing))))
+(defun spot--update-modeline-lighters (&optional current)
+  "Fetch currently playing track and update mode-line variables.
+If CURRENT is provided, use it instead of fetching from the API."
+  (let ((current (or current (spot--alist-to-ht (spot--currently-playing)))))
     (if current
         (progn
           (setq spot--modeline-track
@@ -79,18 +80,18 @@ The default color is the official Spotify green."
 
 (defun spot--check-for-modeline-update ()
   "Check for track change and schedule next update."
-  (spot--update-modeline-lighters)
-  (when-let* ((current (spot--alist-to-ht (spot--currently-playing)))
-              (progress (ht-get current 'progress_ms))
-              (duration (ht-get* current 'item 'duration_ms))
-              (remaining (- duration progress))
-              (delay (max 0 remaining)))
-    (mapc #'cancel-timer spot--update-timers)
-    (push
-     (run-with-timer
-      (+ (/ delay 1000.0) 1.0) nil
-      #'spot--update-modeline-lighters)
-     spot--update-timers)))
+  (let ((current (spot--alist-to-ht (spot--currently-playing))))
+    (spot--update-modeline-lighters current)
+    (when-let* ((progress (and current (ht-get current 'progress_ms)))
+                (duration (ht-get* current 'item 'duration_ms))
+                (remaining (- duration progress))
+                (delay (max 0 remaining)))
+      (mapc #'cancel-timer spot--update-timers)
+      (push
+       (run-with-timer
+        (+ (/ delay 1000.0) 1.0) nil
+        #'spot--update-modeline-lighters nil)
+       spot--update-timers))))
 
 (defvar spot--periodic-timer nil
   "The periodic timer for mode-line updates.")
