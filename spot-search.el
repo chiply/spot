@@ -66,9 +66,12 @@ in the form \"--key=value\"."
 
 (defun spot--transform-alist-to-q-params (alist)
   "Transform ALIST into URL query parameter string."
-  (mapconcat
-   #'identity
-   (-map (lambda (x) (concat "&" (car x) "=" (cdr x))) (car alist))))
+  (let ((pairs (car alist)))
+    (if pairs
+        (mapconcat
+         (lambda (x) (concat "&" (car x) "=" (cdr x)))
+         pairs "")
+      "")))
 
 (defun spot--search-items (input)
   "Search for items on Spotify based on INPUT.
@@ -78,12 +81,11 @@ Returns a hash table of search results."
          (args (cdr parsed-command))
          (args (spot--transform-alist-to-q-params args))
          (q-params (concat
-                    (spot--base-q-params)
-                    args
-                    "&type=" "album," "artist,"
+                    "?type=" "album," "artist,"
                     "playlist," "track," "show," "episode,"
                     "audiobook"
-                    "&q=" query))
+                    "&q=" query
+                    args))
          (alist (spot-request
                  :method "GET"
                  :url spot-search-url

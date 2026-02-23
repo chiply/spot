@@ -31,9 +31,11 @@ METHOD is the HTTP method, URL is the endpoint, Q-PARAMS is the
 query parameter string, PARSE-JSON when non-nil returns parsed
 JSON as an alist, EXTRA-HEADERS is an alist of additional
 headers, and DATA is the request body."
-  (let ((url-request-method method)
-        (url-request-data data)
-        (url-request-extra-headers extra-headers))
+  (let* ((auth (unless (assoc "Authorization" extra-headers)
+                 (spot--auth-headers)))
+         (url-request-method method)
+         (url-request-data data)
+         (url-request-extra-headers (append auth extra-headers)))
     (if parse-json
         (spot-retrieve-url-to-alist-synchronously
          (concat url q-params))
@@ -62,9 +64,11 @@ METHOD is the HTTP method, URL is the endpoint, Q-PARAMS is the
 query parameter string, CALLBACK receives the response string,
 EXTRA-HEADERS is an alist of additional headers, and DATA is the
 request body."
-  (let ((url-request-method method)
-        (url-request-data data)
-        (url-request-extra-headers extra-headers))
+  (let* ((auth (unless (assoc "Authorization" extra-headers)
+                 (spot--auth-headers)))
+         (url-request-method method)
+         (url-request-data data)
+         (url-request-extra-headers (append auth extra-headers)))
     (spot-retrieve-url-to-alist-asynchronously
      (concat url q-params)
      (or callback #'spot--message-request-complete))))

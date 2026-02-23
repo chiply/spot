@@ -67,7 +67,7 @@ after a player action, even when using a callback function.")
 (defvar spot-browse-url "https://api.spotify.com/v1/browse"
   "Spotify browse endpoint URL.")
 
-(defvar spot-playlist-url "https://api.spotify.com/v1/users/spotify/playlists"
+(defvar spot-playlist-url "https://api.spotify.com/v1/playlists"
   "Spotify playlists endpoint URL.")
 
 (defvar spot-new-releases-url "https://api.spotify.com/v1/browse/new-releases"
@@ -135,8 +135,14 @@ after a player action, even when using a callback function.")
     "&show_dialog=" "true")))
 
 (defun spot--base-q-params ()
-  "Return the base query parameters string with access token."
-  (concat "?access_token=" spot-access-token))
+  "Return an empty query parameter string.
+Authentication is handled via the Authorization header in
+`spot-request' and `spot-request-async'."
+  "")
+
+(defun spot--auth-headers ()
+  "Return an alist with the Bearer authorization header."
+  `(("Authorization" . ,(concat "Bearer " spot-access-token))))
 
 (provide 'spot-var)
 
