@@ -1,6 +1,21 @@
 ;;; spot-var.el --- Variables and configuration for spot -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2025 Charlie Holland
+;;
+;; This file is not part of GNU Emacs.
+;;
+;; This program is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+;;
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+;;
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -17,13 +32,17 @@
 
 (defcustom spot-client-id nil
   "Spotify application client ID.
-Obtain from https://developer.spotify.com/dashboard."
+Obtain from https://developer.spotify.com/dashboard.
+Consider setting this in a file excluded from version control
+rather than via `customize', which writes to your init file."
   :type '(choice (const :tag "Not set" nil) string)
   :group 'spot)
 
 (defcustom spot-client-secret nil
   "Spotify application client secret.
-Obtain from https://developer.spotify.com/dashboard."
+Obtain from https://developer.spotify.com/dashboard.
+Consider setting this in a file excluded from version control
+rather than via `customize', which writes to your init file."
   :type '(choice (const :tag "Not set" nil) string)
   :group 'spot)
 
