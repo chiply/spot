@@ -5,7 +5,9 @@
 ;; Author: Charlie Holland <mister.chiply@gmail.com>
 ;; Maintainer: Charlie Holland <mister.chiply@gmail.com>
 ;; URL: https://github.com/chiply/spot
-;; Version: 0.1.2 ;; x-release-please-version
+;; x-release-please-start-version
+;; Version: 0.1.2
+;; x-release-please-end
 ;; Package-Requires: ((emacs "29.1") (ht "2.3") (dash "2.19") (consult "1.0") (marginalia "1.0") (embark "0.23"))
 ;; Keywords: multimedia
 ;;
