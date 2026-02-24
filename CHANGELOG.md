@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/chiply/spot/compare/v0.1.2...v0.1.3) (2026-02-24)
+
+
+### Bug Fixes
+
+* revert to block-style release-please version markers ([d6bdf03](https://github.com/chiply/spot/commit/d6bdf03a3a1206a3eb968c84a0b0d69069f9a88e))
+
 ## [0.1.2](https://github.com/chiply/spot/compare/v0.1.1...v0.1.2) (2026-02-23)
 
 
