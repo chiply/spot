@@ -1,5 +1,8 @@
 # spot
 
+[![CI](https://github.com/chiply/spot/actions/workflows/ci.yml/badge.svg)](https://github.com/chiply/spot/actions/workflows/ci.yml)
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL%203.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
 A Spotify client for Emacs built on [consult](https://github.com/minad/consult), [embark](https://github.com/oantolin/embark), and [marginalia](https://github.com/minad/marginalia).
 
 spot integrates Spotify into the standard Emacs completion ecosystem. Search results appear as consult multi-sources with marginalia annotations and embark actions — the same workflow you use for buffers, files, and grep.
@@ -15,7 +18,7 @@ spot integrates Spotify into the standard Emacs completion ecosystem. Search res
 
 ## Installation
 
-### From source (elpaca)
+### With elpaca (use-package)
 
 ```elisp
 (use-package spot
@@ -24,12 +27,13 @@ spot integrates Spotify into the standard Emacs completion ecosystem. Search res
   (spot-mode 1))
 ```
 
-### From source (straight.el)
+### With straight.el (use-package)
 
 ```elisp
-(straight-use-package
- '(spot :type git :host github :repo "chiply/spot"))
-(spot-mode 1)
+(use-package spot
+  :straight (:host github :repo "chiply/spot")
+  :config
+  (spot-mode 1))
 ```
 
 ### Manual
