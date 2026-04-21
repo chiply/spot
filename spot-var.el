@@ -120,6 +120,14 @@ after a player action, even when using a callback function.")
 (defvar spot--request-timeout 10
   "Timeout in seconds for Spotify API requests.")
 
+(defcustom spot-refresh-interval 3000
+  "Seconds between automatic access-token refreshes when `spot-mode' is on.
+Spotify access tokens expire after 3600 seconds, so a value below
+that keeps the token valid across the lifetime of an Emacs
+session.  Set to nil to disable automatic refresh."
+  :type '(choice (const :tag "Disabled" nil) (integer :tag "Seconds"))
+  :group 'spot)
+
 (defvar spot--redirect-uri (url-hexify-string "https://spotify.com")
   "URL-encoded redirect URI for OAuth2 flow.")
 

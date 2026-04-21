@@ -72,6 +72,30 @@ returned authorization code."
                     ("Content-Length" . "0")
                     ("Authorization" . ,(concat "Basic " (spot--b64-id-secret))))))
 
+(defvar spot--refresh-timer nil
+  "The periodic timer that refreshes the Spotify access token.")
+
+(defun spot--start-refresh-timer ()
+  "Start the periodic access-token refresh timer.
+Refreshes immediately if `spot-refresh-token' is set, then on
+`spot-refresh-interval' thereafter.  No-op when the interval is
+nil or a timer is already running."
+  (when (and spot-refresh-interval (not spot--refresh-timer))
+    (when spot-refresh-token
+      (spot-refresh))
+    (setq spot--refresh-timer
+          (run-with-timer spot-refresh-interval
+                          spot-refresh-interval
+                          (lambda ()
+                            (when spot-refresh-token
+                              (spot-refresh)))))))
+
+(defun spot--stop-refresh-timer ()
+  "Stop the periodic access-token refresh timer."
+  (when spot--refresh-timer
+    (cancel-timer spot--refresh-timer)
+    (setq spot--refresh-timer nil)))
+
 (provide 'spot-auth)
 
 ;;; spot-auth.el ends here
