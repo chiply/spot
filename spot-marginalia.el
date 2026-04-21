@@ -79,11 +79,25 @@ and passes strings through unchanged."
   (/ (round (* num 100)) 100.0))
 
 (defun spot--format-duration (ms)
-  "Format duration MS in milliseconds as a minutes string (e.g. \"3.25\").
+  "Format duration MS (milliseconds) as \"M:SS\".
 Return \"?\" when MS is nil."
   (if ms
-      (number-to-string (spot--round-to-two-decimals (/ ms 60000.0)))
+      (let* ((total (round (/ ms 1000.0)))
+             (minutes (/ total 60))
+             (seconds (mod total 60)))
+        (format "%d:%02d" minutes seconds))
     "?"))
+
+(defun spot--format-count (n)
+  "Format count N with a K/M/B suffix for readability.
+Values below 10000 render unchanged.  Return \"?\" when N is nil."
+  (cond
+   ((null n) "?")
+   ((not (numberp n)) (format "%s" n))
+   ((< n 10000) (number-to-string n))
+   ((< n 1000000) (format "%dK" (/ n 1000)))
+   ((< n 1000000000) (format "%.1fM" (/ n 1000000.0)))
+   (t (format "%.1fB" (/ n 1000000000.0)))))
 
 (defun spot--first-name (items)
   "Return the `name' of the first element in ITEMS, or nil when empty."
@@ -93,70 +107,75 @@ Return \"?\" when MS is nil."
 ;;; Annotators
 
 (defun spot--annotate-album (cand)
-  "Annotate album CAND with artist, release date, and track count."
+  "Annotate album CAND with artist, release date, and track count.
+The track count is prefixed with `#' to disambiguate the bare integer."
   (let ((data (get-text-property 0 'multi-data cand)))
     (marginalia--fields
      ((spot--annotation-field (spot--first-name (ht-get data 'artists)))
       :truncate 25 :face 'spot-marginalia-artist)
      ((spot--annotation-field (ht-get data 'release_date))
-      :width 10 :face 'spot-marginalia-date)
-     ((spot--annotation-field (ht-get data 'total_tracks))
-      :width 5 :face 'spot-marginalia-number))))
+      :truncate 10 :face 'spot-marginalia-date)
+     ((spot--format-count (ht-get data 'total_tracks))
+      :format "#%s" :truncate 6 :face 'spot-marginalia-number))))
 
 (defun spot--annotate-artist (cand)
-  "Annotate artist CAND with popularity and follower count."
+  "Annotate artist CAND with popularity and follower count.
+Popularity is prefixed with `★' and followers with `♥'."
   (let ((data (get-text-property 0 'multi-data cand)))
     (marginalia--fields
-     ((spot--annotation-field (ht-get data 'popularity))
-      :width 3 :face 'spot-marginalia-number)
-     ((spot--annotation-field (ht-get* data 'followers 'total))
-      :width 10 :face 'spot-marginalia-number))))
+     ((spot--format-count (ht-get data 'popularity))
+      :format "★%s" :truncate 5 :face 'spot-marginalia-number)
+     ((spot--format-count (ht-get* data 'followers 'total))
+      :format "♥%s" :truncate 8 :face 'spot-marginalia-number))))
 
 (defun spot--annotate-track (cand)
-  "Annotate track CAND with number, artist, duration, album, type, and date."
+  "Annotate track CAND with number, artist, duration, album, type, and date.
+The track number is prefixed with `#' and duration rendered as M:SS."
   (let ((data (get-text-property 0 'multi-data cand)))
     (marginalia--fields
-     ((spot--annotation-field (ht-get data 'track_number))
-      :width 3 :face 'spot-marginalia-number)
+     ((spot--format-count (ht-get data 'track_number))
+      :format "#%s" :truncate 5 :face 'spot-marginalia-number)
      ((spot--annotation-field (spot--first-name (ht-get data 'artists)))
       :truncate 25 :face 'spot-marginalia-artist)
      ((spot--format-duration (ht-get data 'duration_ms))
-      :width 6 :face 'spot-marginalia-number)
+      :truncate 7 :face 'spot-marginalia-number)
      ((spot--annotation-field (ht-get* data 'album 'name))
       :truncate 30 :face 'spot-marginalia-album)
      ((spot--annotation-field (ht-get* data 'album 'album_type))
-      :width 8 :face 'spot-marginalia-type)
+      :truncate 8 :face 'spot-marginalia-type)
      ((spot--annotation-field (ht-get* data 'album 'release_date))
-      :width 10 :face 'spot-marginalia-date))))
+      :truncate 10 :face 'spot-marginalia-date))))
 
 (defun spot--annotate-playlist (cand)
-  "Annotate playlist CAND with track count."
+  "Annotate playlist CAND with track count prefixed by `#'."
   (let ((data (get-text-property 0 'multi-data cand)))
     (marginalia--fields
-     ((spot--annotation-field (ht-get* data 'tracks 'total))
-      :width 5 :face 'spot-marginalia-number))))
+     ((spot--format-count (ht-get* data 'tracks 'total))
+      :format "#%s" :truncate 6 :face 'spot-marginalia-number))))
 
 (defun spot--annotate-show (cand)
-  "Annotate show CAND with publisher, media type, episode count, and description."
+  "Annotate show CAND with publisher, media type, episode count, and description.
+The episode count is prefixed with `#'."
   (let ((data (get-text-property 0 'multi-data cand)))
     (marginalia--fields
      ((spot--annotation-field (ht-get data 'publisher))
       :truncate 25 :face 'spot-marginalia-artist)
      ((spot--annotation-field (ht-get data 'media_type))
-      :width 8 :face 'spot-marginalia-type)
-     ((spot--annotation-field (ht-get data 'total_episodes))
-      :width 5 :face 'spot-marginalia-number)
+      :truncate 8 :face 'spot-marginalia-type)
+     ((spot--format-count (ht-get data 'total_episodes))
+      :format "#%s" :truncate 6 :face 'spot-marginalia-number)
      ((spot--annotation-field (ht-get data 'description))
       :truncate 60 :face 'spot-marginalia-description))))
 
 (defun spot--annotate-episode (cand)
-  "Annotate episode CAND with release date, duration, and description."
+  "Annotate episode CAND with release date, duration, and description.
+Duration is rendered as M:SS."
   (let ((data (get-text-property 0 'multi-data cand)))
     (marginalia--fields
      ((spot--annotation-field (ht-get data 'release_date))
-      :width 10 :face 'spot-marginalia-date)
+      :truncate 10 :face 'spot-marginalia-date)
      ((spot--format-duration (ht-get data 'duration_ms))
-      :width 6 :face 'spot-marginalia-number)
+      :truncate 7 :face 'spot-marginalia-number)
      ((spot--annotation-field (ht-get data 'description))
       :truncate 60 :face 'spot-marginalia-description))))
 

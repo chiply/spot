@@ -251,7 +251,7 @@
   (propertize (or (ht-get data 'name) "cand") 'multi-data data))
 
 (ert-deftest spot-test-annotate-album/contains-fields ()
-  "Album annotation includes artist, release date, and track count."
+  "Album annotation includes artist, release date, and `#'-prefixed track count."
   (let* ((data (ht ('name "Kid A")
                    ('artists (list (ht ('name "Radiohead"))))
                    ('release_date "2000-10-02")
@@ -260,12 +260,22 @@
                (spot--annotate-album (spot-test--cand data)))))
     (should (string-match-p "Radiohead" ann))
     (should (string-match-p "2000-10-02" ann))
-    (should (string-match-p "11" ann))
+    (should (string-match-p "#11" ann))
     (should-not (string-match-p " <- " ann))
     (should-not (string-match-p " || " ann))))
 
+(ert-deftest spot-test-annotate-artist/contains-fields ()
+  "Artist annotation prefixes popularity with `★' and followers with `♥'."
+  (let* ((data (ht ('name "Radiohead")
+                   ('popularity 87)
+                   ('followers (ht ('total 2175423)))))
+         (ann (substring-no-properties
+               (spot--annotate-artist (spot-test--cand data)))))
+    (should (string-match-p "★87" ann))
+    (should (string-match-p "♥2\\.2M" ann))))
+
 (ert-deftest spot-test-annotate-track/contains-fields ()
-  "Track annotation includes number, artist, duration, album, type, and date."
+  "Track annotation includes `#'-number, artist, M:SS duration, album, type, and date."
   (let* ((data (ht ('name "Everything In Its Right Place")
                    ('track_number 1)
                    ('duration_ms 251000)
@@ -275,9 +285,10 @@
                                ('release_date "2000-10-02")))))
          (ann (substring-no-properties
                (spot--annotate-track (spot-test--cand data)))))
+    (should (string-match-p "#1" ann))
     (should (string-match-p "Radiohead" ann))
     (should (string-match-p "Kid A" ann))
-    (should (string-match-p "4.18" ann))
+    (should (string-match-p "4:11" ann))
     (should (string-match-p "album" ann))
     (should (string-match-p "2000-10-02" ann))))
 
@@ -302,9 +313,21 @@
   "Duration formatter tolerates a nil input."
   (should (equal (spot--format-duration nil) "?")))
 
-(ert-deftest spot-test-format-duration/minutes ()
-  "Duration formatter returns minutes rounded to two decimals."
-  (should (equal (spot--format-duration 251000) "4.18")))
+(ert-deftest spot-test-format-duration/mm-ss ()
+  "Duration formatter renders milliseconds as M:SS."
+  (should (equal (spot--format-duration 251000) "4:11"))
+  (should (equal (spot--format-duration 5000) "0:05"))
+  (should (equal (spot--format-duration 3599000) "59:59")))
+
+(ert-deftest spot-test-format-count/thresholds ()
+  "Count formatter humanizes large numbers, leaves small ones bare."
+  (should (equal (spot--format-count nil) "?"))
+  (should (equal (spot--format-count 0) "0"))
+  (should (equal (spot--format-count 42) "42"))
+  (should (equal (spot--format-count 9999) "9999"))
+  (should (equal (spot--format-count 10000) "10K"))
+  (should (equal (spot--format-count 2175423) "2.2M"))
+  (should (equal (spot--format-count 1500000000) "1.5B")))
 
 (provide 'spot-test)
 
