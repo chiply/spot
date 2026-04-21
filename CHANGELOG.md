@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.4](https://github.com/chiply/spot/compare/v0.1.3...v0.1.4) (2026-04-21)
+
+
+### Features
+
+* auto-refresh access token when spot-mode is enabled ([1f88808](https://github.com/chiply/spot/commit/1f88808277a41cc5c44b451dd8c87381ea4a0792))
+* **marginalia:** prefix ambiguous numeric fields with symbols ([a508ee9](https://github.com/chiply/spot/commit/a508ee947c9c3692827de1ac8cc9cda2ced5b383))
+* **marginalia:** use marginalia--fields for aligned, coloured annotations ([27b86c7](https://github.com/chiply/spot/commit/27b86c7be89057976b4bb5205f41998c4d2c319e))
+
+
+### Bug Fixes
+
+* surface Spotify API errors instead of silently returning nothing ([ef074fd](https://github.com/chiply/spot/commit/ef074fd3c4b6f30395c8e16f11f30de0f4bd6e98))
+* truncate very wide candidates so annotations don't render off-screen ([2e947f8](https://github.com/chiply/spot/commit/2e947f82dee37e5139ea4949fe9f2932e834afc5))
+
 ## [0.1.3](https://github.com/chiply/spot/compare/v0.1.2...v0.1.3) (2026-02-24)
 
 
