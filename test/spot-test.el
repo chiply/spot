@@ -15,6 +15,7 @@
 (require 'spot-mode-line)
 (require 'spot-marginalia)
 (require 'spot-var)
+(require 'spot-auth)
 
 
 ;;; spot--alist-get-chain
@@ -209,6 +210,38 @@
         (should (assq 'album marginalia-annotators))
         (should (assq 'track marginalia-annotators)))
     (spot-mode -1)))
+
+
+;;; spot--refresh-timer
+
+(ert-deftest spot-test-refresh-timer/enable-starts-timer ()
+  "Enabling spot-mode starts the refresh timer."
+  (require 'spot)
+  (let ((spot-refresh-token nil)) ; avoid triggering an actual refresh
+    (unwind-protect
+        (progn
+          (spot-mode 1)
+          (should (timerp spot--refresh-timer)))
+      (spot-mode -1))))
+
+(ert-deftest spot-test-refresh-timer/disable-stops-timer ()
+  "Disabling spot-mode stops the refresh timer."
+  (require 'spot)
+  (let ((spot-refresh-token nil))
+    (spot-mode 1)
+    (spot-mode -1)
+    (should-not spot--refresh-timer)))
+
+(ert-deftest spot-test-refresh-timer/nil-interval-skips-timer ()
+  "Setting `spot-refresh-interval' to nil disables the refresh timer."
+  (require 'spot)
+  (let ((spot-refresh-interval nil)
+        (spot-refresh-token nil))
+    (unwind-protect
+        (progn
+          (spot-mode 1)
+          (should-not spot--refresh-timer))
+      (spot-mode -1))))
 
 (provide 'spot-test)
 

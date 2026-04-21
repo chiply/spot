@@ -73,23 +73,28 @@
 (declare-function spot--teardown-marginalia "spot-marginalia")
 (declare-function spot--start-update-timer "spot-mode-line")
 (declare-function spot--stop-update-timer "spot-mode-line")
+(declare-function spot--start-refresh-timer "spot-auth")
+(declare-function spot--stop-refresh-timer "spot-auth")
 
 ;;;###autoload
 (define-minor-mode spot-mode
   "Global minor mode for the spot Spotify client.
-Registers embark keymaps, marginalia annotators, and starts the
-mode-line update timer when enabled.  Cleanly removes all
-integrations when disabled."
+Registers embark keymaps, marginalia annotators, starts the
+mode-line update timer, and starts a periodic access-token
+refresh timer when enabled.  Cleanly removes all integrations
+when disabled."
   :global t
   :group 'spot
   (if spot-mode
       (progn
         (spot--setup-embark)
         (spot--setup-marginalia)
-        (spot--start-update-timer))
+        (spot--start-update-timer)
+        (spot--start-refresh-timer))
     (spot--teardown-embark)
     (spot--teardown-marginalia)
-    (spot--stop-update-timer)))
+    (spot--stop-update-timer)
+    (spot--stop-refresh-timer)))
 
 (provide 'spot)
 
