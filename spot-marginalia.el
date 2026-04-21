@@ -20,11 +20,49 @@
 ;;; Commentary:
 
 ;; Marginalia annotation functions for Spotify search result categories.
+;;
+;; Annotations are built with `marginalia--fields' so they render as
+;; aligned columns with per-field truncation and faces, matching the
+;; look of marginalia's built-in annotators.
 
 ;;; Code:
 
 (require 'ht)
 (require 'marginalia)
+
+;;; Faces
+
+(defface spot-marginalia-artist
+  '((t :inherit marginalia-type))
+  "Face for artist, publisher, narrator, and author fields."
+  :group 'spot)
+
+(defface spot-marginalia-album
+  '((t :inherit marginalia-value))
+  "Face for album name references inside track annotations."
+  :group 'spot)
+
+(defface spot-marginalia-date
+  '((t :inherit marginalia-date))
+  "Face for release-date fields."
+  :group 'spot)
+
+(defface spot-marginalia-number
+  '((t :inherit marginalia-number))
+  "Face for numeric fields (counts, popularity, duration, track number)."
+  :group 'spot)
+
+(defface spot-marginalia-type
+  '((t :inherit marginalia-type))
+  "Face for type fields (album_type, media_type)."
+  :group 'spot)
+
+(defface spot-marginalia-description
+  '((t :inherit marginalia-documentation))
+  "Face for description fields."
+  :group 'spot)
+
+;;; Helpers
 
 (defun spot--annotation-field (value)
   "Format VALUE as a string for marginalia annotations.
@@ -40,103 +78,101 @@ and passes strings through unchanged."
   "Round NUM to two decimal places."
   (/ (round (* num 100)) 100.0))
 
-(defun spot--annotate-album (album)
-  "Annotate ALBUM with name, artist, release date, and track count."
-  (let ((data (get-text-property 0 'multi-data album)))
-    (concat
-     " <- "
-     (mapconcat
-      #'spot--annotation-field
-      `(,(ht-get* data 'name)
-        ,(ht-get* (nth 0 (or (ht-get* data 'artists) '(nil))) 'name)
-        ,(ht-get* data 'release_date)
-        ,(ht-get* data 'total_tracks))
-      " || "))))
+(defun spot--format-duration (ms)
+  "Format duration MS in milliseconds as a minutes string (e.g. \"3.25\").
+Return \"?\" when MS is nil."
+  (if ms
+      (number-to-string (spot--round-to-two-decimals (/ ms 60000.0)))
+    "?"))
 
-(defun spot--annotate-artist (artist)
-  "Annotate ARTIST with name, popularity, and follower count."
-  (let ((data (get-text-property 0 'multi-data artist)))
-    (concat
-     " <- "
-     (mapconcat
-      #'spot--annotation-field
-      `(,(ht-get* data 'name)
-        ,(ht-get* data 'popularity)
-        ,(ht-get* data 'followers 'total))
-      " || "))))
+(defun spot--first-name (items)
+  "Return the `name' of the first element in ITEMS, or nil when empty."
+  (when-let* ((first (nth 0 items)))
+    (ht-get first 'name)))
 
-(defun spot--annotate-track (track)
-  "Annotate TRACK with name, number, artist, duration, album, and date."
-  (let* ((data (get-text-property 0 'multi-data track))
-         (duration-ms (ht-get* data 'duration_ms)))
-    (concat
-     " <- "
-     (mapconcat
-      #'spot--annotation-field
-      `(,(ht-get* data 'name)
-        ,(ht-get* data 'track_number)
-        ,(ht-get* (nth 0 (or (ht-get* data 'artists) '(nil))) 'name)
-        ,(when duration-ms
-           (number-to-string (spot--round-to-two-decimals (/ duration-ms 60000.0))))
-        ,(ht-get* data 'album 'name)
-        ,(ht-get* data 'album 'album_type)
-        ,(ht-get* data 'album 'release_date))
-      " || "))))
+;;; Annotators
 
-(defun spot--annotate-playlist (playlist)
-  "Annotate PLAYLIST with name and track count."
-  (let ((data (get-text-property 0 'multi-data playlist)))
-    (concat
-     " <- "
-     (mapconcat
-      #'spot--annotation-field
-      `(,(ht-get* data 'name)
-        ,(ht-get* data 'tracks 'total))
-      " || "))))
+(defun spot--annotate-album (cand)
+  "Annotate album CAND with artist, release date, and track count."
+  (let ((data (get-text-property 0 'multi-data cand)))
+    (marginalia--fields
+     ((spot--annotation-field (spot--first-name (ht-get data 'artists)))
+      :truncate 25 :face 'spot-marginalia-artist)
+     ((spot--annotation-field (ht-get data 'release_date))
+      :width 10 :face 'spot-marginalia-date)
+     ((spot--annotation-field (ht-get data 'total_tracks))
+      :width 5 :face 'spot-marginalia-number))))
 
-(defun spot--annotate-show (show)
-  "Annotate SHOW with name, publisher, media type, episode count, and description."
-  (let ((data (get-text-property 0 'multi-data show)))
-    (concat
-     " <- "
-     (mapconcat
-      #'spot--annotation-field
-      `(,(ht-get* data 'name)
-        ,(ht-get* data 'publisher)
-        ,(ht-get* data 'media_type)
-        ,(ht-get* data 'total_episodes)
-        ,(ht-get* data 'description))
-      " || "))))
+(defun spot--annotate-artist (cand)
+  "Annotate artist CAND with popularity and follower count."
+  (let ((data (get-text-property 0 'multi-data cand)))
+    (marginalia--fields
+     ((spot--annotation-field (ht-get data 'popularity))
+      :width 3 :face 'spot-marginalia-number)
+     ((spot--annotation-field (ht-get* data 'followers 'total))
+      :width 10 :face 'spot-marginalia-number))))
 
-(defun spot--annotate-episode (episode)
-  "Annotate EPISODE with name, release date, description, and duration."
-  (let* ((data (get-text-property 0 'multi-data episode))
-         (duration-ms (ht-get* data 'duration_ms)))
-    (concat
-     " <- "
-     (mapconcat
-      #'spot--annotation-field
-      `(,(ht-get* data 'name)
-        ,(ht-get* data 'release_date)
-        ,(ht-get* data 'description)
-        ,(when duration-ms
-           (number-to-string (spot--round-to-two-decimals (/ duration-ms 60000.0)))))
-      " || "))))
+(defun spot--annotate-track (cand)
+  "Annotate track CAND with number, artist, duration, album, type, and date."
+  (let ((data (get-text-property 0 'multi-data cand)))
+    (marginalia--fields
+     ((spot--annotation-field (ht-get data 'track_number))
+      :width 3 :face 'spot-marginalia-number)
+     ((spot--annotation-field (spot--first-name (ht-get data 'artists)))
+      :truncate 25 :face 'spot-marginalia-artist)
+     ((spot--format-duration (ht-get data 'duration_ms))
+      :width 6 :face 'spot-marginalia-number)
+     ((spot--annotation-field (ht-get* data 'album 'name))
+      :truncate 30 :face 'spot-marginalia-album)
+     ((spot--annotation-field (ht-get* data 'album 'album_type))
+      :width 8 :face 'spot-marginalia-type)
+     ((spot--annotation-field (ht-get* data 'album 'release_date))
+      :width 10 :face 'spot-marginalia-date))))
 
-(defun spot--annotate-audiobook (audiobook)
-  "Annotate AUDIOBOOK with name, publisher, narrator, author, and description."
-  (let* ((data (get-text-property 0 'multi-data audiobook))
-         (desc (ht-get* data 'description)))
-    (concat
-     " <- "
-     (mapconcat
-      #'spot--annotation-field
-      `(,(ht-get* data 'name)
-        ,(ht-get* data 'publisher)
-        ,(ht-get* (nth 0 (or (ht-get* data 'narrators) '(nil))) 'name)
-        ,(ht-get* (nth 0 (or (ht-get* data 'authors) '(nil))) 'name)
-        ,(when desc (string-replace "\n" " " desc)))
-      " || "))))
+(defun spot--annotate-playlist (cand)
+  "Annotate playlist CAND with track count."
+  (let ((data (get-text-property 0 'multi-data cand)))
+    (marginalia--fields
+     ((spot--annotation-field (ht-get* data 'tracks 'total))
+      :width 5 :face 'spot-marginalia-number))))
+
+(defun spot--annotate-show (cand)
+  "Annotate show CAND with publisher, media type, episode count, and description."
+  (let ((data (get-text-property 0 'multi-data cand)))
+    (marginalia--fields
+     ((spot--annotation-field (ht-get data 'publisher))
+      :truncate 25 :face 'spot-marginalia-artist)
+     ((spot--annotation-field (ht-get data 'media_type))
+      :width 8 :face 'spot-marginalia-type)
+     ((spot--annotation-field (ht-get data 'total_episodes))
+      :width 5 :face 'spot-marginalia-number)
+     ((spot--annotation-field (ht-get data 'description))
+      :truncate 60 :face 'spot-marginalia-description))))
+
+(defun spot--annotate-episode (cand)
+  "Annotate episode CAND with release date, duration, and description."
+  (let ((data (get-text-property 0 'multi-data cand)))
+    (marginalia--fields
+     ((spot--annotation-field (ht-get data 'release_date))
+      :width 10 :face 'spot-marginalia-date)
+     ((spot--format-duration (ht-get data 'duration_ms))
+      :width 6 :face 'spot-marginalia-number)
+     ((spot--annotation-field (ht-get data 'description))
+      :truncate 60 :face 'spot-marginalia-description))))
+
+(defun spot--annotate-audiobook (cand)
+  "Annotate audiobook CAND with publisher, narrator, author, and description."
+  (let* ((data (get-text-property 0 'multi-data cand))
+         (desc (ht-get data 'description)))
+    (marginalia--fields
+     ((spot--annotation-field (ht-get data 'publisher))
+      :truncate 25 :face 'spot-marginalia-artist)
+     ((spot--annotation-field (spot--first-name (ht-get data 'narrators)))
+      :truncate 25 :face 'spot-marginalia-artist)
+     ((spot--annotation-field (spot--first-name (ht-get data 'authors)))
+      :truncate 25 :face 'spot-marginalia-artist)
+     ((spot--annotation-field (when desc (string-replace "\n" " " desc)))
+      :truncate 60 :face 'spot-marginalia-description))))
 
 ;;; Register annotators
 

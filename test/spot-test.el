@@ -243,6 +243,69 @@
           (should-not spot--refresh-timer))
       (spot-mode -1))))
 
+
+;;; Annotators
+
+(defun spot-test--cand (data)
+  "Return a propertized candidate carrying DATA as `multi-data'."
+  (propertize (or (ht-get data 'name) "cand") 'multi-data data))
+
+(ert-deftest spot-test-annotate-album/contains-fields ()
+  "Album annotation includes artist, release date, and track count."
+  (let* ((data (ht ('name "Kid A")
+                   ('artists (list (ht ('name "Radiohead"))))
+                   ('release_date "2000-10-02")
+                   ('total_tracks 11)))
+         (ann (substring-no-properties
+               (spot--annotate-album (spot-test--cand data)))))
+    (should (string-match-p "Radiohead" ann))
+    (should (string-match-p "2000-10-02" ann))
+    (should (string-match-p "11" ann))
+    (should-not (string-match-p " <- " ann))
+    (should-not (string-match-p " || " ann))))
+
+(ert-deftest spot-test-annotate-track/contains-fields ()
+  "Track annotation includes number, artist, duration, album, type, and date."
+  (let* ((data (ht ('name "Everything In Its Right Place")
+                   ('track_number 1)
+                   ('duration_ms 251000)
+                   ('artists (list (ht ('name "Radiohead"))))
+                   ('album (ht ('name "Kid A")
+                               ('album_type "album")
+                               ('release_date "2000-10-02")))))
+         (ann (substring-no-properties
+               (spot--annotate-track (spot-test--cand data)))))
+    (should (string-match-p "Radiohead" ann))
+    (should (string-match-p "Kid A" ann))
+    (should (string-match-p "4.18" ann))
+    (should (string-match-p "album" ann))
+    (should (string-match-p "2000-10-02" ann))))
+
+(ert-deftest spot-test-annotate-audiobook/handles-empty-narrators ()
+  "Audiobook annotation survives empty narrator and author lists."
+  (let* ((data (ht ('name "Book")
+                   ('publisher "Publisher")
+                   ('narrators '())
+                   ('authors '())
+                   ('description "line1\nline2")))
+         (ann (substring-no-properties
+               (spot--annotate-audiobook (spot-test--cand data)))))
+    (should (string-match-p "Publisher" ann))
+    (should (string-match-p "line1 line2" ann))
+    (should-not (string-match-p "\n" ann))))
+
+(ert-deftest spot-test-annotation-field/nil-returns-question-mark ()
+  "Missing values render as \"?\"."
+  (should (equal (spot--annotation-field nil) "?")))
+
+(ert-deftest spot-test-format-duration/nil-returns-question-mark ()
+  "Duration formatter tolerates a nil input."
+  (should (equal (spot--format-duration nil) "?")))
+
+(ert-deftest spot-test-format-duration/minutes ()
+  "Duration formatter returns minutes rounded to two decimals."
+  (should (equal (spot--format-duration 251000) "4.18")))
+
 (provide 'spot-test)
 
 ;;; spot-test.el ends here
