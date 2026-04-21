@@ -27,6 +27,18 @@
 (require 'ht)
 (require 'dash)
 
+(require 'spot-var)
+
+(defun spot--truncate-name (name)
+  "Return NAME truncated to `spot-candidate-max-width' columns.
+A trailing ellipsis marks truncation.  When `spot-candidate-max-width'
+is nil or NAME fits, NAME is returned unchanged."
+  (if (and spot-candidate-max-width
+           (stringp name)
+           (> (string-width name) spot-candidate-max-width))
+      (truncate-string-to-width name spot-candidate-max-width 0 nil "…")
+    name))
+
 (defun spot--alist-get-chain (symbols alist)
   "Look up the value for the chain of SYMBOLS in ALIST.
 Recursively follows the chain of keys to retrieve nested values
@@ -52,11 +64,13 @@ Handles nested alists and arrays recursively."
 
 (defun spot--propertize-items (tables)
   "Propertize a list of hash TABLES for display in completion.
-Each table is expected to have `name' and `type' keys."
+Each table is expected to have `name' and `type' keys.  Names are
+truncated for display per `spot-candidate-max-width'; the full
+name remains accessible via `multi-data'."
   (-map
    (lambda (table)
      (propertize
-      (ht-get table 'name)
+      (spot--truncate-name (ht-get table 'name))
       'category (intern (ht-get table 'type))
       'multi-data table))
    tables))

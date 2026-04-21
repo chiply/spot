@@ -121,6 +121,38 @@
     (should (= (length (spot--filter candidates "artist")) 0))))
 
 
+;;; spot--truncate-name
+
+(ert-deftest spot-test-truncate-name/under-limit ()
+  "Names shorter than the limit pass through unchanged."
+  (let ((spot-candidate-max-width 20))
+    (should (equal (spot--truncate-name "Short name") "Short name"))))
+
+(ert-deftest spot-test-truncate-name/over-limit ()
+  "Names longer than the limit are truncated with an ellipsis."
+  (let* ((spot-candidate-max-width 10)
+         (result (spot--truncate-name "A much longer name that overflows")))
+    (should (<= (string-width result) 10))
+    (should (string-suffix-p "…" result))))
+
+(ert-deftest spot-test-truncate-name/nil-disables ()
+  "Setting the limit to nil returns the name unchanged."
+  (let ((spot-candidate-max-width nil)
+        (long (make-string 200 ?a)))
+    (should (equal (spot--truncate-name long) long))))
+
+(ert-deftest spot-test-propertize-items/truncates-long-names ()
+  "Long candidate names are truncated; `multi-data' keeps the full name."
+  (let* ((spot-candidate-max-width 10)
+         (full-name (make-string 50 ?x))
+         (table (ht ('name full-name) ('type "track")))
+         (cands (spot--propertize-items (list table)))
+         (cand (car cands)))
+    (should (<= (string-width cand) 10))
+    (should (equal (ht-get (get-text-property 0 'multi-data cand) 'name)
+                   full-name))))
+
+
 ;;; spot-mode-line-string
 
 (ert-deftest spot-test-mode-line-string/no-track ()
