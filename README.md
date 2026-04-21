@@ -104,6 +104,36 @@ To refresh an expired token: `M-x spot-refresh`.
 | `e` | Episodes |
 | `b` | Audiobooks |
 
+#### Search arguments
+
+Pass Spotify Search API parameters after a ` -- ` separator, in `--key=value` form:
+
+```
+j dilla -- --limit=50 --market=US
+```
+
+| Argument | Effect |
+|----------|--------|
+| `--limit=N` | Max results per type (1–50, default 20) |
+| `--market=CC` | Restrict to a country catalog (ISO 3166-1 alpha-2, e.g. `US`, `GB`, `JP`) |
+| `--offset=N` | Pagination offset (0–1000) |
+| `--include_external=audio` | Include externally-hosted audio |
+
+Values outside the valid range (e.g. `--limit=200`) are rejected by the Spotify API and surface as an empty result set.
+
+Do not pass `--type=`; spot hardcodes the type parameter internally to enable multi-source search. To narrow to a single type, use the narrowing keys above.
+
+The `q=` parameter itself also accepts [Spotify field filters](https://developer.spotify.com/documentation/web-api/reference/search) — these go **before** the ` -- ` separator since they are part of the query string, not URL parameters:
+
+```
+artist:Radiohead year:2000-2010 -- --market=GB --limit=50
+album:"Kid A"
+genre:jazz year:1960-1970
+tag:new
+```
+
+Supported field filters include `artist:`, `album:`, `year:` (single or range), `genre:`, `tag:hipster`, `tag:new`, `isrc:`, `upc:`.
+
 ### Embark actions
 
 Press `embark-act` (default `C-.`) on any search result:
