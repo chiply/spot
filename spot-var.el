@@ -128,6 +128,25 @@ session.  Set to nil to disable automatic refresh."
   :type '(choice (const :tag "Disabled" nil) (integer :tag "Seconds"))
   :group 'spot)
 
+(defcustom spot-candidate-max-width 60
+  "Maximum display width (in columns) of search candidate strings.
+Candidates longer than this are truncated with an ellipsis.  The
+full name remains available via the `multi-data' text property, so
+embark actions and annotators are unaffected.
+
+This exists because very wide candidates inflate marginalia's
+`marginalia--cand-width-max' — which only grows, never shrinks —
+and once it exceeds the frame width the annotation column is
+drawn past the right edge and clipped.  The interaction is
+particularly easy to trigger with `orderless-annotation' filters,
+because orderless then asks for annotations on every candidate
+rather than only the ones currently displayed.
+
+Set to nil to disable truncation."
+  :type '(choice (const :tag "No truncation" nil)
+                 (integer :tag "Columns"))
+  :group 'spot)
+
 (defvar spot--redirect-uri (url-hexify-string "https://spotify.com")
   "URL-encoded redirect URI for OAuth2 flow.")
 
