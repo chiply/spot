@@ -8,6 +8,7 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'ert)
 (require 'ht)
 (require 'spot-util)
@@ -16,6 +17,7 @@
 (require 'spot-marginalia)
 (require 'spot-var)
 (require 'spot-auth)
+(require 'spot-generic-query)
 
 
 ;;; spot--alist-get-chain
@@ -328,6 +330,57 @@
   (should (equal (spot--format-count 10000) "10K"))
   (should (equal (spot--format-count 2175423) "2.2M"))
   (should (equal (spot--format-count 1500000000) "1.5B")))
+
+
+;;; spot--report-response-error
+
+(defmacro spot-test--with-captured-message (var &rest body)
+  "Execute BODY with `message' stubbed; bind its formatted output to VAR."
+  (declare (indent 1))
+  `(let (,var)
+     (cl-letf (((symbol-function 'message)
+                (lambda (fmt &rest args)
+                  (setq ,var (apply #'format fmt args)))))
+       ,@body)))
+
+(defun spot-test--fake-response (status body)
+  "Populate current buffer to mimic a `url-retrieve' response buffer.
+STATUS is the HTTP status integer, BODY is the response body
+string.  Sets `url-http-end-of-headers' and
+`url-http-response-status' buffer-locally, matching how url.el
+stores them in real response buffers."
+  (insert (format "HTTP/1.1 %d Status\nContent-Type: application/json\n\n"
+                  status))
+  (setq-local url-http-end-of-headers (1- (point)))
+  (insert body)
+  (setq-local url-http-response-status status))
+
+(ert-deftest spot-test-report-response-error/4xx-messages-error ()
+  "A non-2xx response with Spotify error shape is reported via `message'."
+  (spot-test--with-captured-message captured
+    (with-temp-buffer
+      (spot-test--fake-response
+       400 "{\"error\":{\"status\":400,\"message\":\"Invalid limit\"}}")
+      (spot--report-response-error))
+    (should (string-match-p "400" captured))
+    (should (string-match-p "Invalid limit" captured))))
+
+(ert-deftest spot-test-report-response-error/2xx-is-silent ()
+  "A 2xx response does not emit any message."
+  (spot-test--with-captured-message captured
+    (with-temp-buffer
+      (spot-test--fake-response 200 "")
+      (spot--report-response-error))
+    (should-not captured)))
+
+(ert-deftest spot-test-report-response-error/non-json-body-falls-back ()
+  "A non-JSON error body falls back to a generic \"request failed\" message."
+  (spot-test--with-captured-message captured
+    (with-temp-buffer
+      (spot-test--fake-response 500 "<html>oops</html>")
+      (spot--report-response-error))
+    (should (string-match-p "500" captured))
+    (should (string-match-p "request failed" captured))))
 
 (provide 'spot-test)
 

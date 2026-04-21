@@ -28,13 +28,35 @@
 (require 'json)
 (require 'url)
 
+(require 'spot-util)
 (require 'spot-var)
 
 (defvar url-http-end-of-headers)
+(defvar url-http-response-status)
+
+(defun spot--report-response-error ()
+  "If the current response buffer is non-2xx, `message' the error.
+Must be called inside the response buffer of a `url-retrieve' or
+`url-retrieve-synchronously'.  The message includes the HTTP
+status and, when the body is Spotify's standard error shape
+\({\"error\":{\"message\":...}\}), the server's error message."
+  (when (and (boundp 'url-http-response-status)
+             url-http-response-status
+             (not (and (>= url-http-response-status 200)
+                       (<= url-http-response-status 299))))
+    (let* ((body (decode-coding-region (+ 1 url-http-end-of-headers)
+                                       (point-max) 'utf-8 t))
+           (json (and (not (string= body ""))
+                      (ignore-errors (json-read-from-string body))))
+           (msg (spot--alist-get-chain '(error message) json)))
+      (message "spot: %d %s"
+               url-http-response-status
+               (or msg "request failed")))))
 
 (defun spot-retrieve-url-to-alist-synchronously (url)
   "Return alist representation of JSON response from URL."
   (with-current-buffer (url-retrieve-synchronously url nil nil spot--request-timeout)
+    (spot--report-response-error)
     (let ((json (decode-coding-region (+ 1 url-http-end-of-headers)
                                       (point-max) 'utf-8 t)))
       (when (not (string= json ""))
@@ -54,8 +76,10 @@ headers, and DATA is the request body."
     (if parse-json
         (spot-retrieve-url-to-alist-synchronously
          (concat url q-params))
-      (url-retrieve-synchronously
-       (concat url q-params) nil nil spot--request-timeout))))
+      (let ((buffer (url-retrieve-synchronously
+                     (concat url q-params) nil nil spot--request-timeout)))
+        (with-current-buffer buffer (spot--report-response-error))
+        buffer))))
 
 ;; Async
 
@@ -66,6 +90,7 @@ headers, and DATA is the request body."
    (lambda (status)
      (if (plist-get status :error)
          (message "spot: request failed: %s" (cdr (plist-get status :error)))
+       (spot--report-response-error)
        (let ((json (decode-coding-region (+ 1 url-http-end-of-headers)
                                          (point-max) 'utf-8 t)))
          (funcall callback json))))
