@@ -94,6 +94,51 @@
     (should (equal (car result) "jazz"))
     (should (= (length (cadr result)) 2))))
 
+(ert-deftest spot-test-parse-command/quoted-field-with-separator ()
+  "A \" -- \" inside a double-quoted field is part of the query."
+  (let ((result (spot--parse-command
+                 "album:\"Foo -- Live\" artist:\"Bar\" -- --type=track")))
+    (should (equal (car result) "album:\"Foo -- Live\" artist:\"Bar\""))
+    (should (equal (cadr result) '(("type" . "track"))))))
+
+(ert-deftest spot-test-parse-command/quoted-field-no-args ()
+  "A quoted field with an internal \" -- \" but no real args separator."
+  (let ((result (spot--parse-command "album:\"Foo -- Live\"")))
+    (should (equal (car result) "album:\"Foo -- Live\""))
+    (should-not (cadr result))))
+
+(ert-deftest spot-test-parse-command/quoted-field-with-spaces ()
+  "Spaces inside a quoted field are preserved in the query."
+  (let ((result (spot--parse-command
+                 "artist:\"Pink Floyd\" -- --type=track")))
+    (should (equal (car result) "artist:\"Pink Floyd\""))
+    (should (equal (cadr result) '(("type" . "track"))))))
+
+
+;;; spot--build-search-q-params
+
+(ert-deftest spot-test-build-search-q-params/default-types-when-no-args ()
+  "The default type list is included when no args are given."
+  (let ((q (spot--build-search-q-params '("radiohead" nil))))
+    (should (string-match-p "q=radiohead" q))
+    (should (string-match-p
+             "&type=album,artist,playlist,track,show,episode,audiobook"
+             q))))
+
+(ert-deftest spot-test-build-search-q-params/user-type-replaces-default ()
+  "A user-supplied type arg replaces the default type list."
+  (let ((q (spot--build-search-q-params
+            '("foo" (("type" . "track"))))))
+    (should-not (string-match-p "type=album," q))
+    (should (string-match-p "&type=track" q))))
+
+(ert-deftest spot-test-build-search-q-params/non-type-args-keep-default ()
+  "Non-type args don't suppress the default type list."
+  (let ((q (spot--build-search-q-params
+            '("foo" (("market" . "US"))))))
+    (should (string-match-p "&type=album," q))
+    (should (string-match-p "&market=US" q))))
+
 
 ;;; spot--filter and spot--type-equals
 
