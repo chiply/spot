@@ -2,7 +2,7 @@
 
 (package "spot"
 ; x-release-please-start-version
-         "0.1.4"
+         "0.1.5"
 ; x-release-please-end
          "Spotify client")
 
