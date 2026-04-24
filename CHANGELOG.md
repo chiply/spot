@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/chiply/spot/compare/v0.1.4...v0.1.5) (2026-04-24)
+
+
+### Bug Fixes
+
+* escape and url-encode embark field values; respect user --type= ([#7](https://github.com/chiply/spot/issues/7)) ([b53ab9c](https://github.com/chiply/spot/commit/b53ab9c4160dc29e87c75b395fd36bf38f4a90cf))
+
 ## [0.1.4](https://github.com/chiply/spot/compare/v0.1.3...v0.1.4) (2026-04-21)
 
 
