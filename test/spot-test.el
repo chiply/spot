@@ -115,6 +115,31 @@
     (should (equal (cadr result) '(("type" . "track"))))))
 
 
+;;; spot--build-search-q-params
+
+(ert-deftest spot-test-build-search-q-params/default-types-when-no-args ()
+  "The default type list is included when no args are given."
+  (let ((q (spot--build-search-q-params '("radiohead" nil))))
+    (should (string-match-p "q=radiohead" q))
+    (should (string-match-p
+             "&type=album,artist,playlist,track,show,episode,audiobook"
+             q))))
+
+(ert-deftest spot-test-build-search-q-params/user-type-replaces-default ()
+  "A user-supplied type arg replaces the default type list."
+  (let ((q (spot--build-search-q-params
+            '("foo" (("type" . "track"))))))
+    (should-not (string-match-p "type=album," q))
+    (should (string-match-p "&type=track" q))))
+
+(ert-deftest spot-test-build-search-q-params/non-type-args-keep-default ()
+  "Non-type args don't suppress the default type list."
+  (let ((q (spot--build-search-q-params
+            '("foo" (("market" . "US"))))))
+    (should (string-match-p "&type=album," q))
+    (should (string-match-p "&market=US" q))))
+
+
 ;;; spot--filter and spot--type-equals
 
 (ert-deftest spot-test-type-equals/match ()

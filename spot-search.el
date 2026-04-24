@@ -108,19 +108,26 @@ double-quoted regions of INPUT are treated as part of the query."
          pairs "")
       "")))
 
+(defun spot--build-search-q-params (parsed-command)
+  "Build the search URL query parameter string for PARSED-COMMAND.
+PARSED-COMMAND is the result of `spot--parse-command'.  A default
+`type' covering every supported item kind is included unless the
+user supplied their own `type' argument."
+  (let* ((query (car parsed-command))
+         (args-alist (cadr parsed-command))
+         (args (spot--transform-alist-to-q-params (cdr parsed-command)))
+         (default-types
+          (unless (assoc "type" args-alist)
+            "&type=album,artist,playlist,track,show,episode,audiobook")))
+    (concat "?q=" (url-hexify-string query)
+            (or default-types "")
+            args)))
+
 (defun spot--search-items (input)
   "Search for items on Spotify based on INPUT.
 Returns a hash table of search results."
-  (let* ((parsed-command (spot--parse-command input))
-         (query (car parsed-command))
-         (args (cdr parsed-command))
-         (args (spot--transform-alist-to-q-params args))
-         (q-params (concat
-                    "?type=" "album," "artist,"
-                    "playlist," "track," "show," "episode,"
-                    "audiobook"
-                    "&q=" (url-hexify-string query)
-                    args))
+  (let* ((q-params (spot--build-search-q-params
+                    (spot--parse-command input)))
          (alist (spot-request
                  :method "GET"
                  :url spot-search-url
