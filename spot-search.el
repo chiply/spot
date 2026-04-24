@@ -25,6 +25,7 @@
 
 (require 'ht)
 (require 'dash)
+(require 'url-util)
 
 (require 'spot-util)
 (require 'spot-var)
@@ -61,23 +62,42 @@
 (defvar spot--candidates-audiobook '()
   "Current audiobook candidates from the most recent search.")
 
+(defun spot--find-args-separator (input)
+  "Return the start index of the args separator in INPUT, or nil.
+The separator is whitespace, \"--\", whitespace.  Occurrences
+inside double-quoted regions of INPUT are skipped."
+  (let ((i 0) (len (length input)) (in-quote nil) (pos nil))
+    (while (and (null pos) (< i len))
+      (let ((c (aref input i)))
+        (cond
+         ((eq c ?\")
+          (setq in-quote (not in-quote))
+          (setq i (1+ i)))
+         ((and (not in-quote)
+               (eq (string-match "\\s-+--\\s-+" input i) i))
+          (setq pos i))
+         (t (setq i (1+ i))))))
+    pos))
+
 (defun spot--parse-command (input)
   "Parse INPUT into a query and optional arguments.
 Returns a list of (QUERY ARGS) where ARGS is an alist.
 Arguments are separated from the query by \" -- \" and are
-in the form \"--key=value\"."
-  (if (string-match "\\(.*?\\)\\s-+--\\s-+\\(.*\\)" input)
-      (let* ((query (match-string 1 input))
-             (args-str (match-string 2 input))
-             (args (mapcar
-                    (lambda (arg)
-                      (when (string-match
-                             "\\(?:--\\)?\\([^=]+\\)=\\(.*\\)" arg)
-                        (cons (match-string 1 arg)
-                              (match-string 2 arg))))
-                    (split-string args-str))))
-        (list query (delq nil args)))
-    (list input nil)))
+in the form \"--key=value\".  Occurrences of \" -- \" inside
+double-quoted regions of INPUT are treated as part of the query."
+  (let ((sep (spot--find-args-separator input)))
+    (if (and sep (string-match "\\s-+--\\s-+" input sep))
+        (let* ((query (substring input 0 sep))
+               (args-str (substring input (match-end 0)))
+               (args (mapcar
+                      (lambda (arg)
+                        (when (string-match
+                               "\\(?:--\\)?\\([^=]+\\)=\\(.*\\)" arg)
+                          (cons (match-string 1 arg)
+                                (match-string 2 arg))))
+                      (split-string args-str))))
+          (list query (delq nil args)))
+      (list input nil))))
 
 (defun spot--transform-alist-to-q-params (alist)
   "Transform ALIST into URL query parameter string."
@@ -99,7 +119,7 @@ Returns a hash table of search results."
                     "?type=" "album," "artist,"
                     "playlist," "track," "show," "episode,"
                     "audiobook"
-                    "&q=" query
+                    "&q=" (url-hexify-string query)
                     args))
          (alist (spot-request
                  :method "GET"

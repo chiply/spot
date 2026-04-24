@@ -94,6 +94,26 @@
     (should (equal (car result) "jazz"))
     (should (= (length (cadr result)) 2))))
 
+(ert-deftest spot-test-parse-command/quoted-field-with-separator ()
+  "A \" -- \" inside a double-quoted field is part of the query."
+  (let ((result (spot--parse-command
+                 "album:\"Foo -- Live\" artist:\"Bar\" -- --type=track")))
+    (should (equal (car result) "album:\"Foo -- Live\" artist:\"Bar\""))
+    (should (equal (cadr result) '(("type" . "track"))))))
+
+(ert-deftest spot-test-parse-command/quoted-field-no-args ()
+  "A quoted field with an internal \" -- \" but no real args separator."
+  (let ((result (spot--parse-command "album:\"Foo -- Live\"")))
+    (should (equal (car result) "album:\"Foo -- Live\""))
+    (should-not (cadr result))))
+
+(ert-deftest spot-test-parse-command/quoted-field-with-spaces ()
+  "Spaces inside a quoted field are preserved in the query."
+  (let ((result (spot--parse-command
+                 "artist:\"Pink Floyd\" -- --type=track")))
+    (should (equal (car result) "artist:\"Pink Floyd\""))
+    (should (equal (cadr result) '(("type" . "track"))))))
+
 
 ;;; spot--filter and spot--type-equals
 

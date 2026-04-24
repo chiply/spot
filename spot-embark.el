@@ -41,6 +41,12 @@
     (switch-to-buffer buf)
     (goto-char (point-min))))
 
+(defun spot--quote-field-value (value)
+  "Wrap VALUE in double quotes for use in a Spotify field filter.
+Embedded double quotes are stripped, since Spotify search syntax
+defines no escape sequence."
+  (concat "\"" (replace-regexp-in-string "\"" "" value) "\""))
+
 (defun spot-action--list-album-tracks (item)
   "Search for tracks on the album represented by ITEM."
   (let* ((table (get-text-property 0 'multi-data item))
@@ -48,16 +54,19 @@
          (artist-name (ht-get* (nth 0 (ht-get* table 'artists)) 'name)))
     (spot-consult-search
      (concat
-      "album:" album-name
+      "album:" (spot--quote-field-value album-name)
       " "
-      "artist:" artist-name " -- --type=track"))))
+      "artist:" (spot--quote-field-value artist-name)
+      " -- --type=track"))))
 
 (defun spot-action--list-artist-tracks (item)
   "Search for tracks by the artist represented by ITEM."
   (let* ((table (get-text-property 0 'multi-data item))
          (artist-name (ht-get* table 'name)))
     (spot-consult-search
-     (concat "artist:" artist-name " -- --type=track"))))
+     (concat
+      "artist:" (spot--quote-field-value artist-name)
+      " -- --type=track"))))
 
 (defun spot-action--list-playlist-tracks (item)
   "List tracks in the playlist represented by ITEM."
