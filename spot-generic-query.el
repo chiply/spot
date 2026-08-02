@@ -34,6 +34,18 @@
 (defvar url-http-end-of-headers)
 (defvar url-http-response-status)
 
+;; Defined in spot-auth, which requires this file; the guard in
+;; `spot--bearer-auth-headers' keeps standalone loads safe.
+(declare-function spot--ensure-fresh-token "spot-auth")
+
+(defun spot--bearer-auth-headers ()
+  "Return Bearer auth headers, refreshing a stale token first.
+The refresh keeps background pollers and interactive commands from
+sending requests with an expired token, which would fail with 401."
+  (when (fboundp 'spot--ensure-fresh-token)
+    (spot--ensure-fresh-token))
+  (spot--auth-headers))
+
 (defun spot--report-response-error ()
   "If the current response buffer is non-2xx, `message' the error.
 Must be called inside the response buffer of a `url-retrieve' or
@@ -44,6 +56,10 @@ status and, when the body is Spotify's standard error shape
              url-http-response-status
              (not (and (>= url-http-response-status 200)
                        (<= url-http-response-status 299))))
+    (when (= url-http-response-status 401)
+      ;; The token was rejected regardless of its recorded expiry;
+      ;; force staleness so the next request refreshes before sending.
+      (setq spot--token-expires-at 0))
     (let* ((body (decode-coding-region (+ 1 url-http-end-of-headers)
                                        (point-max) 'utf-8 t))
            (json (and (not (string= body ""))
@@ -69,7 +85,7 @@ query parameter string, PARSE-JSON when non-nil returns parsed
 JSON as an alist, EXTRA-HEADERS is an alist of additional
 headers, and DATA is the request body."
   (let* ((auth (unless (assoc "Authorization" extra-headers)
-                 (spot--auth-headers)))
+                 (spot--bearer-auth-headers)))
          (url-request-method method)
          (url-request-data data)
          (url-request-extra-headers (append auth extra-headers)))
@@ -107,7 +123,7 @@ query parameter string, CALLBACK receives the response string,
 EXTRA-HEADERS is an alist of additional headers, and DATA is the
 request body."
   (let* ((auth (unless (assoc "Authorization" extra-headers)
-                 (spot--auth-headers)))
+                 (spot--bearer-auth-headers)))
          (url-request-method method)
          (url-request-data data)
          (url-request-extra-headers (append auth extra-headers)))
