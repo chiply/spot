@@ -87,16 +87,19 @@ returned authorization code."
   "Refresh the Spotify access token, blocking until the request completes.
 Return the new access token, or nil when the refresh fails."
   (spot--store-token-response
-   (ignore-errors
-     (spot-request
-      :method "POST"
-      :url spot-token-url
-      :q-params (concat "?grant_type=" "refresh_token"
-                        "&refresh_token=" spot-refresh-token)
-      :parse-json t
-      :extra-headers `(("Content-Type" . "application/x-www-form-urlencoded")
-                       ("Content-Length" . "0")
-                       ("Authorization" . ,(concat "Basic " (spot--b64-id-secret))))))))
+   (condition-case err
+       (spot-request
+        :method "POST"
+        :url spot-token-url
+        :q-params (concat "?grant_type=" "refresh_token"
+                          "&refresh_token=" spot-refresh-token)
+        :parse-json t
+        :extra-headers `(("Content-Type" . "application/x-www-form-urlencoded")
+                         ("Content-Length" . "0")
+                         ("Authorization" . ,(concat "Basic " (spot--b64-id-secret)))))
+     (error
+      (message "spot: token refresh failed: %s" (error-message-string err))
+      nil))))
 
 (defun spot--token-stale-p ()
   "Return non-nil when the access token is missing or near expiry.
@@ -107,8 +110,8 @@ zero (see `spot--report-response-error'), which makes the token
 stale for the request after that."
   (or (null spot-access-token)
       (and spot--token-expires-at
-           (> (+ (float-time) spot-token-refresh-margin)
-              spot--token-expires-at))))
+           (>= (+ (float-time) spot-token-refresh-margin)
+               spot--token-expires-at))))
 
 (defun spot--ensure-fresh-token ()
   "Refresh the access token now if it is missing or about to expire.
