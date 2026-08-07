@@ -409,6 +409,124 @@
   (should (equal (spot--format-count 1500000000) "1.5B")))
 
 
+;;; Token freshness
+
+(ert-deftest spot-test-token-stale-p/nil-token-is-stale ()
+  "A missing access token is stale."
+  (let ((spot-access-token nil)
+        (spot--token-expires-at nil))
+    (should (spot--token-stale-p))))
+
+(ert-deftest spot-test-token-stale-p/fresh-token-is-not-stale ()
+  "A token far from expiry is not stale."
+  (let ((spot-access-token "tok")
+        (spot--token-expires-at (+ (float-time) 3600)))
+    (should-not (spot--token-stale-p))))
+
+(ert-deftest spot-test-token-stale-p/near-expiry-is-stale ()
+  "A token inside the refresh margin is stale."
+  (let ((spot-access-token "tok")
+        (spot-token-refresh-margin 300)
+        (spot--token-expires-at (+ (float-time) 10)))
+    (should (spot--token-stale-p))))
+
+(ert-deftest spot-test-token-stale-p/unknown-expiry-is-not-stale ()
+  "A manually set token without expiry info is trusted until a 401."
+  (let ((spot-access-token "tok")
+        (spot--token-expires-at nil))
+    (should-not (spot--token-stale-p))))
+
+(ert-deftest spot-test-ensure-fresh-token/no-refresh-token-is-noop ()
+  "Without a refresh token no refresh is attempted."
+  (let ((spot-access-token nil)
+        (spot--token-expires-at nil)
+        (spot-refresh-token nil)
+        (called nil))
+    (cl-letf (((symbol-function 'spot-refresh-synchronously)
+               (lambda () (setq called t))))
+      (spot--ensure-fresh-token))
+    (should-not called)))
+
+(ert-deftest spot-test-ensure-fresh-token/stale-token-refreshes ()
+  "A stale token triggers a synchronous refresh."
+  (let ((spot-access-token nil)
+        (spot--token-expires-at nil)
+        (spot-refresh-token "refresh")
+        (called nil))
+    (cl-letf (((symbol-function 'spot-refresh-synchronously)
+               (lambda () (setq called t))))
+      (spot--ensure-fresh-token))
+    (should called)))
+
+(ert-deftest spot-test-ensure-fresh-token/fresh-token-is-noop ()
+  "A fresh token does not trigger a refresh."
+  (let ((spot-access-token "tok")
+        (spot--token-expires-at (+ (float-time) 3600))
+        (spot-refresh-token "refresh")
+        (called nil))
+    (cl-letf (((symbol-function 'spot-refresh-synchronously)
+               (lambda () (setq called t))))
+      (spot--ensure-fresh-token))
+    (should-not called)))
+
+(ert-deftest spot-test-refresh-synchronously/stores-token-and-expiry ()
+  "A successful refresh stores the token and its expiry time."
+  (let ((spot-access-token nil)
+        (spot--token-expires-at nil)
+        (spot-refresh-token "refresh"))
+    (cl-letf (((symbol-function 'spot-request)
+               (lambda (&rest _)
+                 '((access_token . "new-token") (expires_in . 3600)))))
+      (should (equal (spot-refresh-synchronously) "new-token")))
+    (should (equal spot-access-token "new-token"))
+    (should (> spot--token-expires-at (float-time)))))
+
+(ert-deftest spot-test-refresh-synchronously/failure-returns-nil ()
+  "A failed refresh returns nil and leaves the token untouched."
+  (let ((spot-access-token "old")
+        (spot--token-expires-at 42)
+        (spot-refresh-token "refresh"))
+    (cl-letf (((symbol-function 'spot-request)
+               (lambda (&rest _) nil)))
+      (should-not (spot-refresh-synchronously)))
+    (should (equal spot-access-token "old"))
+    (should (= spot--token-expires-at 42))))
+
+(ert-deftest spot-test-refresh-synchronously/error-messages-and-returns-nil ()
+  "A refresh whose request signals reports the error and returns nil."
+  (let ((spot-access-token "old")
+        (spot--token-expires-at 42)
+        (spot-refresh-token "refresh")
+        captured)
+    (cl-letf (((symbol-function 'spot-request)
+               (lambda (&rest _) (error "boom")))
+              ((symbol-function 'message)
+               (lambda (fmt &rest args)
+                 (setq captured (apply #'format fmt args)))))
+      (should-not (spot-refresh-synchronously)))
+    (should (string-match-p "token refresh failed" captured))
+    (should (string-match-p "boom" captured))
+    (should (equal spot-access-token "old"))
+    (should (= spot--token-expires-at 42))))
+
+(ert-deftest spot-test-request/ensures-fresh-token-for-bearer-auth ()
+  "Bearer requests ensure freshness; explicit-auth requests do not."
+  (let ((ensure-calls 0))
+    (cl-letf (((symbol-function 'spot--ensure-fresh-token)
+               (lambda () (cl-incf ensure-calls)))
+              ((symbol-function 'url-retrieve-synchronously)
+               (lambda (&rest _)
+                 (with-current-buffer
+                     (generate-new-buffer " *spot-test-response*")
+                   (spot-test--fake-response 200 "{}")
+                   (current-buffer)))))
+      (spot-request :method "GET" :url "https://example.invalid" :q-params "")
+      (should (= ensure-calls 1))
+      (spot-request :method "GET" :url "https://example.invalid" :q-params ""
+                    :extra-headers '(("Authorization" . "Basic zzz")))
+      (should (= ensure-calls 1)))))
+
+
 ;;; spot--report-response-error
 
 (defmacro spot-test--with-captured-message (var &rest body)
@@ -441,6 +559,29 @@ stores them in real response buffers."
       (spot--report-response-error))
     (should (string-match-p "400" captured))
     (should (string-match-p "Invalid limit" captured))))
+
+(ert-deftest spot-test-report-response-error/401-marks-token-stale ()
+  "A 401 on a Bearer request zeroes the recorded expiry to force a refresh."
+  (let ((spot--token-expires-at (+ (float-time) 3600)))
+    (spot-test--with-captured-message captured
+      (with-temp-buffer
+        (spot-test--fake-response
+         401 "{\"error\":{\"status\":401,\"message\":\"The access token expired\"}}")
+        (spot--report-response-error t))
+      (should (string-match-p "401" captured)))
+    (should (= spot--token-expires-at 0))))
+
+(ert-deftest spot-test-report-response-error/non-bearer-401-keeps-expiry ()
+  "A 401 on a non-Bearer request leaves the recorded expiry alone."
+  (let* ((expires-at (+ (float-time) 3600))
+         (spot--token-expires-at expires-at))
+    (spot-test--with-captured-message captured
+      (with-temp-buffer
+        (spot-test--fake-response
+         401 "{\"error\":{\"status\":401,\"message\":\"Invalid client\"}}")
+        (spot--report-response-error))
+      (should (string-match-p "401" captured)))
+    (should (= spot--token-expires-at expires-at))))
 
 (ert-deftest spot-test-report-response-error/2xx-is-silent ()
   "A 2xx response does not emit any message."

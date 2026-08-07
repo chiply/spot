@@ -89,8 +89,10 @@ when disabled."
       (progn
         (spot--setup-embark)
         (spot--setup-marginalia)
-        (spot--start-update-timer)
-        (spot--start-refresh-timer))
+        ;; Refresh timer first: the update timer polls immediately,
+        ;; and its first request must find the auth machinery running.
+        (spot--start-refresh-timer)
+        (spot--start-update-timer))
     (spot--teardown-embark)
     (spot--teardown-marginalia)
     (spot--stop-update-timer)

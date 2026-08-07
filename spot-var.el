@@ -58,6 +58,11 @@ rather than via `customize', which writes to your init file."
 (defvar spot-refresh-token nil
   "Current Spotify OAuth2 refresh token.")
 
+(defvar spot--token-expires-at nil
+  "Time, as a `float-time', when `spot-access-token' expires.
+Set from the token endpoint's expires_in field.  nil when the
+expiry is unknown, for example when the token was set manually.")
+
 (defvar spot-wait-time 1.0
   "Seconds to wait between changing track and fetching currently-playing.
 There are synchronicity issues when displaying currently-playing
@@ -126,6 +131,15 @@ Spotify access tokens expire after 3600 seconds, so a value below
 that keeps the token valid across the lifetime of an Emacs
 session.  Set to nil to disable automatic refresh."
   :type '(choice (const :tag "Disabled" nil) (integer :tag "Seconds"))
+  :group 'spot)
+
+(defcustom spot-token-refresh-margin 300
+  "Seconds before expiry at which the access token counts as stale.
+Requests refresh the token on demand when it is within this many
+seconds of expiring.  This covers periods when Emacs timers do not
+run, such as system sleep, during which the periodic refresh timer
+cannot keep the token fresh."
+  :type 'integer
   :group 'spot)
 
 (defcustom spot-candidate-max-width 60

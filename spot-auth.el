@@ -30,6 +30,19 @@
 (require 'spot-var)
 (require 'spot-generic-query)
 
+(defun spot--store-token-response (json)
+  "Store the access token and expiry from token endpoint response JSON.
+JSON is the parsed response alist.  Record when the token expires
+from its expires_in field so `spot--token-stale-p' can detect
+staleness.  Return the new access token, or nil when JSON has
+none."
+  (when-let* ((token (spot--alist-get-chain '(access_token) json)))
+    (setq spot-access-token token
+          spot--token-expires-at
+          (+ (float-time)
+             (or (spot--alist-get-chain '(expires_in) json) 3600)))
+    token))
+
 ;;;###autoload
 (defun spot-authorize ()
   "Obtain access and refresh tokens for a Spotify user account.
@@ -46,9 +59,9 @@ returned authorization code."
                        "&code=" auth-code)
      :callback (lambda (response)
                  (let ((json (json-read-from-string response)))
-                   (setq
-                    spot-access-token (spot--alist-get-chain '(access_token) json)
-                    spot-refresh-token (spot--alist-get-chain '(refresh_token) json)))
+                   (spot--store-token-response json)
+                   (setq spot-refresh-token
+                         (spot--alist-get-chain '(refresh_token) json)))
                  (message "Refreshed spot access token and refresh token"))
      :extra-headers `(("Content-Type" . "application/x-www-form-urlencoded")
                       ("Content-Length" . "0")
@@ -64,25 +77,60 @@ returned authorization code."
    :q-params (concat "?grant_type=" "refresh_token"
                      "&refresh_token=" spot-refresh-token)
    :callback (lambda (response)
-               (setq
-                spot-access-token
-                (spot--alist-get-chain '(access_token) (json-read-from-string response)))
+               (spot--store-token-response (json-read-from-string response))
                (message "Refreshed spot access token"))
    :extra-headers `(("Content-Type" . "application/x-www-form-urlencoded")
                     ("Content-Length" . "0")
                     ("Authorization" . ,(concat "Basic " (spot--b64-id-secret))))))
+
+(defun spot-refresh-synchronously ()
+  "Refresh the Spotify access token, blocking until the request completes.
+Return the new access token, or nil when the refresh fails."
+  (spot--store-token-response
+   (condition-case err
+       (spot-request
+        :method "POST"
+        :url spot-token-url
+        :q-params (concat "?grant_type=" "refresh_token"
+                          "&refresh_token=" spot-refresh-token)
+        :parse-json t
+        :extra-headers `(("Content-Type" . "application/x-www-form-urlencoded")
+                         ("Content-Length" . "0")
+                         ("Authorization" . ,(concat "Basic " (spot--b64-id-secret)))))
+     (error
+      (message "spot: token refresh failed: %s" (error-message-string err))
+      nil))))
+
+(defun spot--token-stale-p ()
+  "Return non-nil when the access token is missing or near expiry.
+Near expiry means within `spot-token-refresh-margin' seconds of
+`spot--token-expires-at'.  A token with an unknown expiry is not
+considered stale; a 401 response forces the recorded expiry to
+zero (see `spot--report-response-error'), which makes the token
+stale for the request after that."
+  (or (null spot-access-token)
+      (and spot--token-expires-at
+           (>= (+ (float-time) spot-token-refresh-margin)
+               spot--token-expires-at))))
+
+(defun spot--ensure-fresh-token ()
+  "Refresh the access token now if it is missing or about to expire.
+Blocks until the refresh completes, so a request made right after
+this call holds a valid token.  No-op when `spot-refresh-token' is
+nil, since no refresh is possible without it."
+  (when (and spot-refresh-token (spot--token-stale-p))
+    (spot-refresh-synchronously)))
 
 (defvar spot--refresh-timer nil
   "The periodic timer that refreshes the Spotify access token.")
 
 (defun spot--start-refresh-timer ()
   "Start the periodic access-token refresh timer.
-Refreshes immediately if `spot-refresh-token' is set, then on
-`spot-refresh-interval' thereafter.  No-op when the interval is
-nil or a timer is already running."
+Refreshes every `spot-refresh-interval' seconds.  The first
+request after startup obtains a token on demand via
+`spot--ensure-fresh-token', so no immediate refresh happens here.
+No-op when the interval is nil or a timer is already running."
   (when (and spot-refresh-interval (not spot--refresh-timer))
-    (when spot-refresh-token
-      (spot-refresh))
     (setq spot--refresh-timer
           (run-with-timer spot-refresh-interval
                           spot-refresh-interval

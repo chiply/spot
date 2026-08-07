@@ -34,16 +34,39 @@
 (defvar url-http-end-of-headers)
 (defvar url-http-response-status)
 
-(defun spot--report-response-error ()
+;; Defined in spot-auth, which requires this file back; the `fboundp'
+;; guard in `spot--bearer-auth-headers' covers this one function, the
+;; only thing it uses that spot-var (required above) does not provide.
+(declare-function spot--ensure-fresh-token "spot-auth")
+
+(defun spot--bearer-auth-headers ()
+  "Return Bearer auth headers, refreshing a stale token first.
+The refresh keeps background pollers and interactive commands from
+sending requests with an expired token, which would fail with 401."
+  (when (fboundp 'spot--ensure-fresh-token)
+    (spot--ensure-fresh-token))
+  (spot--auth-headers))
+
+(defun spot--report-response-error (&optional bearer)
   "If the current response buffer is non-2xx, `message' the error.
 Must be called inside the response buffer of a `url-retrieve' or
-`url-retrieve-synchronously'.  The message includes the HTTP
-status and, when the body is Spotify's standard error shape
-\({\"error\":{\"message\":...}\}), the server's error message."
+`url-retrieve-synchronously'.  BEARER non-nil means the request
+was sent with Bearer auth; a 401 then marks the access token
+stale so the next request refreshes it first.  The message
+includes the HTTP status and, when the body is Spotify's standard
+error shape \({\"error\":{\"message\":...}\}), the server's error
+message."
   (when (and (boundp 'url-http-response-status)
              url-http-response-status
              (not (and (>= url-http-response-status 200)
                        (<= url-http-response-status 299))))
+    (when (and bearer (= url-http-response-status 401))
+      ;; The token was rejected regardless of its recorded expiry;
+      ;; force staleness so the next request refreshes before sending.
+      ;; A 401 from a non-Bearer request (the Basic-auth token
+      ;; endpoint) says nothing about the access token, so leave the
+      ;; expiry alone there.
+      (setq spot--token-expires-at 0))
     (let* ((body (decode-coding-region (+ 1 url-http-end-of-headers)
                                        (point-max) 'utf-8 t))
            (json (and (not (string= body ""))
@@ -53,10 +76,12 @@ status and, when the body is Spotify's standard error shape
                url-http-response-status
                (or msg "request failed")))))
 
-(defun spot-retrieve-url-to-alist-synchronously (url)
-  "Return alist representation of JSON response from URL."
+(defun spot-retrieve-url-to-alist-synchronously (url &optional bearer)
+  "Return alist representation of JSON response from URL.
+BEARER non-nil means the request carries Bearer auth; see
+`spot--report-response-error'."
   (with-current-buffer (url-retrieve-synchronously url nil nil spot--request-timeout)
-    (spot--report-response-error)
+    (spot--report-response-error bearer)
     (let ((json (decode-coding-region (+ 1 url-http-end-of-headers)
                                       (point-max) 'utf-8 t)))
       (when (not (string= json ""))
@@ -69,28 +94,30 @@ query parameter string, PARSE-JSON when non-nil returns parsed
 JSON as an alist, EXTRA-HEADERS is an alist of additional
 headers, and DATA is the request body."
   (let* ((auth (unless (assoc "Authorization" extra-headers)
-                 (spot--auth-headers)))
+                 (spot--bearer-auth-headers)))
          (url-request-method method)
          (url-request-data data)
          (url-request-extra-headers (append auth extra-headers)))
     (if parse-json
         (spot-retrieve-url-to-alist-synchronously
-         (concat url q-params))
+         (concat url q-params) (and auth t))
       (let ((buffer (url-retrieve-synchronously
                      (concat url q-params) nil nil spot--request-timeout)))
-        (with-current-buffer buffer (spot--report-response-error))
+        (with-current-buffer buffer (spot--report-response-error (and auth t)))
         buffer))))
 
 ;; Async
 
-(defun spot-retrieve-url-to-alist-asynchronously (url callback)
-  "Fetch URL asynchronously and call CALLBACK with the JSON response string."
+(defun spot-retrieve-url-to-alist-asynchronously (url callback &optional bearer)
+  "Fetch URL asynchronously and call CALLBACK with the JSON response string.
+BEARER non-nil means the request carries Bearer auth; see
+`spot--report-response-error'."
   (url-retrieve
    url
    (lambda (status)
      (if (plist-get status :error)
          (message "spot: request failed: %s" (cdr (plist-get status :error)))
-       (spot--report-response-error)
+       (spot--report-response-error bearer)
        (let ((json (decode-coding-region (+ 1 url-http-end-of-headers)
                                          (point-max) 'utf-8 t)))
          (funcall callback json))))
@@ -107,13 +134,14 @@ query parameter string, CALLBACK receives the response string,
 EXTRA-HEADERS is an alist of additional headers, and DATA is the
 request body."
   (let* ((auth (unless (assoc "Authorization" extra-headers)
-                 (spot--auth-headers)))
+                 (spot--bearer-auth-headers)))
          (url-request-method method)
          (url-request-data data)
          (url-request-extra-headers (append auth extra-headers)))
     (spot-retrieve-url-to-alist-asynchronously
      (concat url q-params)
-     (or callback #'spot--message-request-complete))))
+     (or callback #'spot--message-request-complete)
+     (and auth t))))
 
 ;; Currently playing
 
