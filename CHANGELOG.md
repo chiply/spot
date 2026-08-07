@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.6](https://github.com/chiply/spot/compare/v0.1.5...v0.1.6) (2026-08-07)
+
+
+### Bug Fixes
+
+* refresh access token on demand to prevent 401s at startup and after sleep ([#10](https://github.com/chiply/spot/issues/10)) ([b867df1](https://github.com/chiply/spot/commit/b867df160483bead1f516190618f4b1a1aac5172))
+
 ## [0.1.5](https://github.com/chiply/spot/compare/v0.1.4...v0.1.5) (2026-04-24)
 
 
